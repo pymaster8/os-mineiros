@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Minas Gerais: História & Sabores</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <!-- Leaflet (mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --card:#111827cc; /* gray-900 w/ alpha */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e5e7eb; /* gray-200 */
+      --brand:#22c55e; /* green-500 */
+      --brand-2:#a3e635; /* lime-400 */
+      --ring:#10b98155; /* emerald-500/35 */
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Arial; color:var(--text); background:radial-gradient(1200px 600px at 80% -10%, #1e293b 0%, #0b1020 55%, #050816 100%);
+    }
+    a{color:var(--brand)}
+    .app{
+      display:grid; grid-template-columns: 280px 1fr; gap: 18px; max-width:1200px; margin:0 auto; padding:18px;
+    }
+    header{
+      grid-column:1/-1; background:linear-gradient(135deg,#111827,#0b1324); border:1px solid #1f2937; border-radius:18px; padding:18px 20px; box-shadow:var(--shadow);
+      position:sticky; top:12px; z-index:10;
+    }
+    header h1{margin:0; font-weight:800; letter-spacing:.3px}
+    header p{margin:6px 0 0; color:var(--muted)}
+    .sidebar{
+      position:sticky; top:108px; align-self:start; display:flex; flex-direction:column; gap:10px;
+    }
+    .btn{
+      appearance:none; border:none; padding:12px 14px; border-radius:14px; font-weight:600; letter-spacing:.2px; cursor:pointer; transition:.2s transform, .2s filter, .2s box-shadow;
+      background:linear-gradient(180deg,#0f172a,#0b1020); color:var(--text); border:1px solid #1f2937; box-shadow:var(--shadow);
+    }
+    .btn:hover{transform:translateY(-1px); box-shadow:0 12px 30px rgba(0,0,0,.45)}
+    .btn:is(.active){outline:2px solid var(--ring);}
+
+    .content{display:flex; flex-direction:column; gap:18px}
+
+    .card{
+      background:linear-gradient(180deg, #0b1324, #0a0f1f); border:1px solid #1f2937; border-radius:20px; padding:18px 18px; box-shadow:var(--shadow);
+    }
+    .card h2{margin:0 0 8px 0}
+    .muted{color:var(--muted)}
+
+    .chips{display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 0}
+    .chip{padding:8px 12px; border-radius:999px; border:1px solid #1f2937; background:#0b1020; font-size:14px; cursor:pointer}
+    .chip.active{outline:2px solid var(--ring)}
+
+    #map{height:340px; border-radius:16px; border:1px solid #1f2937}
+
+    section[data-topic]{display:none}
+    section[data-topic].show{display:block}
+
+    .grid{
+      display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:18px;
+    }
+    @media (max-width: 920px){
+      .app{grid-template-columns:1fr}
+      .sidebar{position:static}
+      .grid{grid-template-columns:1fr}
+      header{position:static}
+    }
+    .footer{color:var(--muted); font-size:14px; text-align:center}
+    .to-top{
+      position:fixed; right:18px; bottom:18px; border-radius:999px; width:44px; height:44px; display:grid; place-items:center; background:#0b1020; border:1px solid #1f2937; cursor:pointer; box-shadow:var(--shadow)
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Minas Gerais — História & Sabores</h1>
+      <p class="muted">Mapa interativo, tópicos mutáveis e a história de clássicos mineiros: <strong>Romeu e Julieta</strong>, <strong>Pão de Queijo</strong>, <strong>Bolo</strong> e <strong>Milho</strong>.</p>
+    </header>
+
+    <!-- Navegação lateral: botões de direcionamento -->
+    <nav class="sidebar" aria-label="Navegação de seções">
+      <button class="btn active" data-nav="historia">História de Minas</button>
+      <button class="btn" data-nav="mapa">Mapa</button>
+      <button class="btn" data-nav="romeu">Romeu & Julieta</button>
+      <button class="btn" data-nav="pao">Pão de Queijo</button>
+      <button class="btn" data-nav="bolo">Bolo</button>
+      <button class="btn" data-nav="milho">Milho</button>
+    </nav>
+
+    <main class="content">
+      <!-- CARD: HISTÓRIA GERAL + TÓPICOS MUTÁVEIS -->
+      <div id="historia" class="card">
+        <h2>História de Minas Gerais</h2>
+        <p class="muted">Escolha um tópico para ver o conteúdo:</p>
+        <div class="chips" role="tablist">
+          <button class="chip active" data-topic-btn="ciclo-ouro" role="tab" aria-controls="sec-ciclo-ouro">Ciclo do Ouro</button>
+          <button class="chip" data-topic-btn="inconfidencia" role="tab" aria-controls="sec-inconfidencia">Inconfidência</button>
+          <button class="chip" data-topic-btn="ferrovias" role="tab" aria-controls="sec-ferrovias">Ferrovias</button>
+          <button class="chip" data-topic-btn="modernizacao" role="tab" aria-controls="sec-modernizacao">Modernização</button>
+        </div>
+        <div style="margin-top:12px" class="grid">
+          <section id="sec-ciclo-ouro" data-topic class="show" role="tabpanel">
+            <h3>Ciclo do Ouro (séc. XVIII)</h3>
+            <p>Minas surgiu como grande polo da colônia portuguesa graças às minas de ouro e diamantes. Vilas como <strong>Ouro Preto</strong> e <strong>Diamantina</strong> floresceram, deixando patrimônio barroco singular e uma rede urbana que influenciou rotas, impostos e a formação social da região.</p>
+          </section>
+          <section id="sec-inconfidencia" data-topic role="tabpanel">
+            <h3>Inconfidência Mineira (1789)</h3>
+            <p>Movimento de elite letrada contra a Coroa, inspirado por ideias iluministas e pela independência americana. <strong>Tiradentes</strong> tornou-se mártir nacional, e o episódio marcou o imaginário político brasileiro.</p>
+          </section>
+          <section id="sec-ferrovias" data-topic role="tabpanel">
+            <h3>Ferrovias e café (séc. XIX)</h3>
+            <p>A expansão ferroviária integrou Minas a portos e mercados, impulsionando o café no sul do estado e a indústria nascente no centro, especialmente em <strong>Belo Horizonte</strong> e região.</p>
+          </section>
+          <section id="sec-modernizacao" data-topic role="tabpanel">
+            <h3>Modernização e mineiridade (séc. XX)</h3>
+            <p>Com a nova capital planejada, BH, e polos como <strong>Uberlândia</strong> e <strong>Juiz de Fora</strong>, o estado consolidou educação, cultura e culinária — a famosa <em>cozinha mineira</em> — como marcas de identidade.</p>
+          </section>
+        </div>
+      </div>
+
+      <!-- CARD: MAPA -->
+      <div id="mapa" class="card">
+        <h2>Mapa de Minas Gerais</h2>
+        <p class="muted">Arraste e dê zoom. Marcadores mostram cidades históricas.</p>
+        <div id="map" role="region" aria-label="Mapa de Minas Gerais"></div>
+      </div>
+
+      <!-- CARD: GASTRONOMIA -->
+      <div id="romeu" class="card">
+        <h2>Romeu & Julieta</h2>
+        <p>Clássica combinação de <strong>goiabada</strong> com <strong>queijo minas</strong>. Surgiu da abundância local de cana, frutas e laticínios. O contraste doce–salga­do virou símbolo afetivo dos lares mineiros e inspirou tortas, sorvetes e sobremesas.</p>
+      </div>
+
+      <div id="pao" class="card">
+        <h2>Pão de Queijo</h2>
+        <p>Feito com <strong>polvilho</strong> (do processo de mandioca) e <strong>queijo curado</strong>, ganhou popularidade no século XX com fornos domésticos. Textura elástica e casquinha leve tornaram o salgado um ícone nacional, presente em padarias e reuniões de família.</p>
+      </div>
+
+      <div id="bolo" class="card">
+        <h2>Bolo (de Fubá / Milho)</h2>
+        <p>Receitas de <strong>bolo de fubá</strong> e <strong>bolo de milho</strong> são ancestrais nas fazendas, ligadas ao milho moído no pilão e aos quintais. Geralmente levam erva-doce, queijo ralado ou goiabada em cubos (o famoso <em>bolo formigueiro mineiro</em> tem variações com rapadura).</p>
+      </div>
+
+      <div id="milho" class="card">
+        <h2>Milho em Minas</h2>
+        <p>Base do ciclo alimentar rural: pamonha, curau, canjica, angu e broas. O milho articulou trabalho coletivo em colheitas e festas juninas, moldando o calendário afetivo do interior mineiro.</p>
+      </div>
+
+      <p class="footer">by David.H</p>
+    </main>
+  </div>
+
+  <button class="to-top" title="Topo" aria-label="Voltar ao topo" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+  <script>
+    // Navegação por botões laterais
+    const navButtons = document.querySelectorAll('.sidebar .btn');
+    navButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.nav;
+        const target = document.getElementById(id);
+        if(target){
+          window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 96, behavior: 'smooth' });
+        }
+        navButtons.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // Tópicos mutáveis (chips)
+    const chipBtns = document.querySelectorAll('[data-topic-btn]');
+    const topicSections = document.querySelectorAll('section[data-topic]');
+    chipBtns.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const key = chip.dataset.topicBtn;
+        chipBtns.forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');
+        topicSections.forEach(sec => {
+          sec.classList.toggle('show', sec.id === 'sec-'+key);
+        });
+      });
+    });
+
+    // Mapa Leaflet centrado em Minas Gerais
+    const map = L.map('map', { zoomControl: true });
+    const centerMG = [-18.5, -44.0];
+    map.setView(centerMG, 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const cities = [
+      { name: 'Belo Horizonte (BH)', coords: [-19.9167, -43.9345] },
+      { name: 'Ouro Preto', coords: [-20.3856, -43.5036] },
+      { name: 'Diamantina', coords: [-18.2410, -43.6031] },
+      { name: 'Tiradentes', coords: [-21.1102, -44.1744] },
+      { name: 'Juiz de Fora', coords: [-21.7642, -43.3503] },
+      { name: 'Uberlândia', coords: [-18.9141, -48.2749] },
+    ];
+    cities.forEach(c => L.marker(c.coords).addTo(map).bindPopup('<b>'+c.name+'</b>'));
+
+    // Corrigir render do mapa quando a aba é aberta em alguns navegadores
+    const resizeObserver = new ResizeObserver(() => map.invalidateSize());
+    resizeObserver.observe(document.getElementById('map'));
+  </script>
+</body>
+</html>
